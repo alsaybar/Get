@@ -163,8 +163,17 @@ public actor APIClient {
             throw URLError(.badURL)
         }
         if let query = query, !query.isEmpty {
-            components.queryItems = query.map(URLQueryItem.init)
+            func encode(_ string: String) -> String {
+                string.addingPercentEncoding(withAllowedCharacters: .nonReservedURLQueryAllowed) ?? string
+            }
+
+            let percentEncoded = query.reduce(into: [String]()) { queryString, query in
+                queryString.append("\(encode(query.0))=\(encode(query.1 ?? ""))")
+            }.joined(separator: "&")
+
+            components.percentEncodedQuery = percentEncoded
         }
+
         guard let url = components.url else {
             throw URLError(.badURL)
         }
@@ -211,3 +220,14 @@ public extension APIClientDelegate {
 }
 
 private struct DefaultAPIClientDelegate: APIClientDelegate {}
+
+extension CharacterSet {
+    /// Creates a CharacterSet according to RFC 3986 allowed characters and W3C recommendations
+    ///
+    /// See also [https://developer.apple.com/documentation/foundation/nsurlcomponents/1407752-queryitems](https://developer.apple.com/documentation/foundation/nsurlcomponents/1407752-queryitems).
+    public static let nonReservedURLQueryAllowed: CharacterSet = {
+        let encodableCharacters = CharacterSet(charactersIn: ":#[]@!$&'()*+,;=")
+
+        return CharacterSet.urlQueryAllowed.subtracting(encodableCharacters)
+    }()
+}
